@@ -17,26 +17,30 @@
     </div>
 	  <button id="brown-noise">Sleep</button> <button id="mute">Unmute</button>
     <script>
-      var audioContext = new (window.webkitAudioContext || window.AudioContext)();
-      var bufferSize = 4096;
-      var brownNoise = (function() {
-        var lastOut = 0.0;
-        var node = audioContext.createScriptProcessor(bufferSize, 1, 1);
-        node.onaudioprocess = function(e) {
-          var output = e.outputBuffer.getChannelData(0);
-          for (var i = 0; i < bufferSize; i++) {
-            var white = Math.random() * 2 - 1;
-            output[i] = (lastOut + (0.02 * white)) / 1.02;
-            lastOut = output[i];
-            output[i] *= 3.5;
+      var noise = null;
+      function initAudio() {
+        var context = new (window.webkitAudioContext || window.AudioContext)();
+        var bufferSize = 4096;
+        var brownNoise = (function() {
+          var lastOut = 0.0;
+          var node = context.createScriptProcessor(bufferSize, 1, 1);
+          node.onaudioprocess = function(e) {
+            var output = e.outputBuffer.getChannelData(0);
+            for (var i = 0; i < bufferSize; i++) {
+              var white = Math.random() * 2 - 1;
+              output[i] = (lastOut + (0.02 * white)) / 1.02;
+              lastOut = output[i];
+              output[i] *= 3.5;
+            }
           }
-        }
-        return node;
-      })();
-      var brownGain = audioContext.createGain();
-      brownGain.gain.value = 0.0;
-      brownNoise.connect(brownGain);
-      brownGain.connect(audioContext.destination);
+          return node;
+        })();
+        var brownGain = context.createGain();
+        brownGain.gain.value = 0.0;
+        brownNoise.connect(brownGain);
+        brownGain.connect(context.destination);
+        return brownGain;
+      }
       var is_sleep_mode = false;
       var is_muted = true;
       var toggleSleep = function() {
@@ -55,13 +59,16 @@
       };
       var toggleMute = function() {
         var handler = function(e) {
+          if (noise === null) {
+            noise = initAudio();
+          }
           if (is_muted) {
             e.target.textContent = "Mute";
-            brownGain.gain.value = 0.3;
-            audioContext.resume();
+            noise.gain.value = 0.3;
+            //context.resume();
           } else {
             e.target.textContent = "Unmute";
-            brownGain.gain.value = 0.0;
+            noise.gain.value = 0.0;
           }
           is_muted = !is_muted;
         };
