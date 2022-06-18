@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style> body {background-color: #7fe8ff;} </style>
+  </head>
+  <body>
+    <div>
+      <input type="color" id="wake" name="wake" value="#7fe8ff">
+      <label for="wake">Color for wake</label>
+      <input type="time" id="wake-time" name="wake-time" value="09:00:00">
+      <label for="wake-time">Time for wake</label>
+    </div> <div>
+      <input type="color" id="sleep" name="sleep" value="#ba55d3">
+      <label for="sleep">Color for sleep</label>
+      <input type="time" id="sleep-time" name="sleep-time" value="22:00:00">
+      <label for="sleep-time">Time for sleep</label>
+    </div>
+	  <button id="brown-noise">Sleep</button> <button id="mute">Unmute</button>
+    <script>
+      var audioContext = new (window.webkitAudioContext || window.AudioContext)();
+      var bufferSize = 4096;
+      var brownNoise = (function() {
+        var lastOut = 0.0;
+        var node = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        node.onaudioprocess = function(e) {
+          var output = e.outputBuffer.getChannelData(0);
+          for (var i = 0; i < bufferSize; i++) {
+            var white = Math.random() * 2 - 1;
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+            output[i] *= 3.5;
+          }
+        }
+        return node;
+      })();
+      var brownGain = audioContext.createGain();
+      brownGain.gain.value = 0.0;
+      brownNoise.connect(brownGain);
+      brownGain.connect(audioContext.destination);
+      var is_sleep_mode = false;
+      var is_muted = true;
+      var toggleSleep = function() {
+        var handler = function(e) {
+          if (is_sleep_mode) {
+            e.target.textContent = "Sleep";
+            document.body.style.backgroundColor = document.getElementById("wake").value;
+            is_sleep_mode = false;
+          } else {
+            e.target.textContent = "Wake";
+            document.body.style.backgroundColor = document.getElementById("sleep").value;
+            is_sleep_mode = true;
+          }
+        };
+        return handler;
+      };
+      var toggleMute = function() {
+        var handler = function(e) {
+          if (is_muted) {
+            e.target.textContent = "Mute";
+            brownGain.gain.value = 0.3;
+            audioContext.resume();
+          } else {
+            e.target.textContent = "Unmute";
+            brownGain.gain.value = 0.0;
+          }
+          is_muted = !is_muted;
+        };
+        return handler;
+      };
+      sleep_button = document.getElementById("brown-noise")
+      sleep_button.onclick = toggleSleep();
+      mute_button = document.getElementById("mute")
+      mute_button.onclick = toggleMute();
+      var d = new Date();
+      var previous_hours = d.getHours() + d.getMinutes() / 60.0 + d.getSeconds() / 3600.0;
+      setInterval(function() {
+        var waketime = document.getElementById("wake-time").value;
+        var [hh,mm,ss] = waketime.split(":");
+        var waketime_hours = parseInt(hh) + parseInt(mm) / 60.0;
+        var sleeptime = document.getElementById("sleep-time").value;
+        var [hh,mm,ss] = sleeptime.split(":");
+        var sleeptime_hours = parseInt(hh) + parseInt(mm) / 60.0;
+        var d = new Date();
+        var now_hours = d.getHours() + d.getMinutes() / 60.0 + d.getSeconds() / 3600.0;
+        if ((previous_hours < waketime_hours) && (now_hours >= waketime_hours)) {
+          document.getElementById("brown-noise").textContent = "Sleep";
+          document.body.style.backgroundColor = document.getElementById("wake").value;
+          is_sleep_mode = false;
+        }
+        if ((previous_hours < sleeptime_hours) && (now_hours >= sleeptime_hours)) {
+          document.getElementById("brown-noise").textContent = "Wake";
+          document.body.style.backgroundColor = document.getElementById("sleep").value;
+          is_sleep_mode = true;
+        }
+        // console.log(previous_hours, now_hours, is_sleep_mode);
+        previous_hours = now_hours;
+      }, 1 * 1000); // 1 * 1000 milsec
+    </script>
+  </body>
+</html>
